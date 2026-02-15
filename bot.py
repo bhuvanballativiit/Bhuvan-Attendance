@@ -113,4 +113,6 @@ async def show(update: Update, context: ContextTypes.DEFAULT_TYPE):
 if __name__ == "__main__":
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("show", show))
-    app.run_polling()
+
+    # Drop any previous update sessions
+    app.run_polling(drop_pending_updates=True)
