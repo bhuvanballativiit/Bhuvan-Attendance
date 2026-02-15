@@ -1,16 +1,14 @@
-import time
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from webdriver_manager.chrome import ChromeDriverManager
-
+import requests
+import base64
+from bs4 import BeautifulSoup
+from Crypto.Cipher import AES
+from Crypto.Util.Padding import pad
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 
 # ==============================
-# 🔐 EDIT ONLY THESE 3 VALUES
+# 🔐 EDIT ONLY THESE
 # ==============================
 
 BOT_TOKEN = "8533340695:AAHmavCk_xxpL8abkzRca-eY45PorfrLF9A"
@@ -19,76 +17,83 @@ PASSWORD = "Bhuvan@123"
 
 
 # ==============================
+# 🔐 AES ENCRYPTION (Same as Website)
+# ==============================
+
+def encrypt_password(password):
+    key = b'8701661282118308'
+    iv = b'8701661282118308'
+
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    padded = pad(password.encode(), AES.block_size)
+    encrypted = cipher.encrypt(padded)
+
+    return base64.b64encode(encrypted).decode()
+
+
+# ==============================
 # 🚀 ATTENDANCE FUNCTION
 # ==============================
 
 def get_attendance():
+    session = requests.Session()
 
-    options = Options()
-    options.add_argument("--headless")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
+    # 1️⃣ Get Login Page
+    login_url = "https://webprosindia.com/vignanit/"
+    response = session.get(login_url)
+    soup = BeautifulSoup(response.text, "html.parser")
 
-    driver = webdriver.Chrome(
-        service=Service(ChromeDriverManager().install()),
-        options=options
-    )
+    viewstate = soup.find(id="__VIEWSTATE")["value"]
+    eventvalidation = soup.find(id="__EVENTVALIDATION")["value"]
 
-    try:
-        driver.get("https://webprosindia.com/vignanit/")
-        time.sleep(3)
+    encrypted_pwd = encrypt_password(PASSWORD)
 
-        driver.find_element(By.ID, "txtId2").send_keys(USERNAME)
-        driver.find_element(By.ID, "txtPwd2").send_keys(PASSWORD)
-        driver.find_element(By.ID, "txtPwd2").submit()
+    # 2️⃣ Login POST
+    payload = {
+        "__VIEWSTATE": viewstate,
+        "__EVENTVALIDATION": eventvalidation,
+        "txtId2": USERNAME,
+        "txtPwd2": encrypted_pwd,
+        "imgBtn2.x": "0",
+        "imgBtn2.y": "0"
+    }
 
-        time.sleep(5)
+    session.post(login_url + "default.aspx", data=payload)
 
-        driver.get("https://webprosindia.com/vignanit/Academics/StudentAttendance.aspx?scrid=3&showtype=SA")
-        time.sleep(5)
+    # 3️⃣ Get Attendance Page
+    attendance_url = "https://webprosindia.com/vignanit/Academics/StudentAttendance.aspx?scrid=3&showtype=SA"
+    attendance_page = session.get(attendance_url)
 
-        driver.switch_to.frame("capIframe")
-        time.sleep(3)
+    soup = BeautifulSoup(attendance_page.text, "html.parser")
 
-        rows = driver.find_elements(By.CSS_SELECTOR, "table.cellBorder tr")
+    table = soup.find("table", {"class": "cellBorder"})
+    if not table:
+        return "Login failed or attendance table not found."
 
-        total_held = ""
-        total_attend = ""
-        total_percent = ""
+    rows = table.find_all("tr")
 
-        subject_lines = []
+    total_line = ""
+    subject_lines = []
 
-        for row in rows:
-            cols = row.find_elements(By.TAG_NAME, "td")
+    for row in rows:
+        cols = row.find_all("td")
+        if len(cols) == 5:
+            subject = cols[1].text.strip()
+            held = cols[2].text.strip()
+            attend = cols[3].text.strip()
+            percent = cols[4].text.strip()
 
-            if len(cols) == 5:
+            if subject.upper() == "TOTAL":
+                total_line = f"📊 Total: ({attend}/{held}) = {percent}%"
+            else:
+                subject_lines.append(f"{subject}: {attend}/{held}")
 
-                subject = cols[1].text.strip()
-                held = cols[2].text.strip()
-                attend = cols[3].text.strip()
-                percent = cols[4].text.strip()
+    return f"""
+{total_line}
 
-                if subject.upper() == "TOTAL":
-                    total_held = held
-                    total_attend = attend
-                    total_percent = percent
-                else:
-                    subject_lines.append(f"{subject} : {attend}/{held}")
-
-        message = f"""
-📊 Total Attendance: ({total_attend}/{total_held}) = {total_percent}%
-
-📚 Subject Wise Attendance:
+📚 Subject Wise:
 {chr(10).join(subject_lines)}
 """
-
-        return message
-
-    except Exception as e:
-        return f"Error occurred:\n{str(e)}"
-
-    finally:
-        driver.quit()
 
 
 # ==============================
