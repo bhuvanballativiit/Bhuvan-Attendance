@@ -1,8 +1,4 @@
 import time
-import os
-from flask import Flask
-from threading import Thread
-
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
@@ -39,22 +35,18 @@ def get_attendance():
     )
 
     try:
-        # Open login page
         driver.get("https://webprosindia.com/vignanit/")
         time.sleep(3)
 
-        # Login
         driver.find_element(By.ID, "txtId2").send_keys(USERNAME)
         driver.find_element(By.ID, "txtPwd2").send_keys(PASSWORD)
         driver.find_element(By.ID, "txtPwd2").submit()
 
         time.sleep(5)
 
-        # Open Attendance Page
         driver.get("https://webprosindia.com/vignanit/Academics/StudentAttendance.aspx?scrid=3&showtype=SA")
         time.sleep(5)
 
-        # Switch to iframe
         driver.switch_to.frame("capIframe")
         time.sleep(3)
 
@@ -65,8 +57,6 @@ def get_attendance():
         total_percent = ""
 
         subject_lines = []
-        skip_classes = 0
-        bunk_classes = 0
 
         for row in rows:
             cols = row.find_elements(By.TAG_NAME, "td")
@@ -85,30 +75,11 @@ def get_attendance():
                 else:
                     subject_lines.append(f"{subject} : {attend}/{held}")
 
-                    try:
-                        held_int = int(held)
-                        attend_int = int(attend)
-                        percent_float = float(percent)
-
-                        if percent_float >= 75:
-                            max_bunk = attend_int - int(0.75 * held_int)
-                            if max_bunk > 0:
-                                skip_classes += max_bunk
-                        else:
-                            required = int((0.75 * held_int) - attend_int) + 1
-                            if required > 0:
-                                bunk_classes += required
-                    except:
-                        pass
-
         message = f"""
 📊 Total Attendance: ({total_attend}/{total_held}) = {total_percent}%
 
 📚 Subject Wise Attendance:
 {chr(10).join(subject_lines)}
-
-🟢 Skip : {skip_classes} classes (>75%)
-🔴 Required : {bunk_classes} classes (<75%)
 """
 
         return message
@@ -131,29 +102,10 @@ async def show(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ==============================
-# 🌐 FLASK KEEP ALIVE (Railway)
-# ==============================
-
-app = Flask('')
-
-@app.route('/')
-def home():
-    return "Bot is running!"
-
-def run():
-    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080)))
-
-def keep_alive():
-    t = Thread(target=run)
-    t.start()
-
-
-# ==============================
 # 🚀 START BOT
 # ==============================
 
 if __name__ == "__main__":
-    keep_alive()
-    application = ApplicationBuilder().token(BOT_TOKEN).build()
-    application.add_handler(CommandHandler("show", show))
-    application.run_polling()
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    app.add_handler(CommandHandler("show", show))
+    app.run_polling()
