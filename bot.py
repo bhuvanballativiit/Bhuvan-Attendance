@@ -11,7 +11,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 # 🔐 EDIT ONLY THESE
 # ==============================
 
-BOT_TOKEN = "8533340695:AAEQUOE0DrScAGKkhGTm340zX6xMZjsuqWs"
+BOT_TOKEN = "8533340695:AAGLFgvV6ss__F3marjAA5PFxVhRQN8lYUc"
 USERNAME = "24L31A4608"
 PASSWORD = "Bhuvan@123"
 
