@@ -107,12 +107,20 @@ async def show(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ==============================
-# 🚀 START BOT
+# 🚀 START BOT (WEBHOOK MODE)
 # ==============================
+
+import os
 
 if __name__ == "__main__":
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("show", show))
 
-    # Drop any previous update sessions
-    app.run_polling(drop_pending_updates=True)
+    PORT = int(os.environ.get("PORT", 8080))
+    RAILWAY_URL = os.environ.get("RAILWAY_STATIC_URL")
+
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=PORT,
+        webhook_url=f"https://{RAILWAY_URL}/"
+    )
